@@ -19,16 +19,16 @@ jobs:
           dotnet-version: '8.0.x'
 
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore src\PlaywrightAutomation.csproj
 
       - name: Build
-        run: dotnet build --configuration Release --no-restore
+        run: dotnet build --configuration Release --no-restore src\PlaywrightAutomation.csproj
 
       - name: Pack
-        run: dotnet pack ./src/PlaywrightAutomation.csproj --configuration Release -o ./artifacts /p:IncludeSymbols=false
+        run: dotnet pack src\PlaywrightAutomation.csproj --configuration Release -o ./publish /p:IncludeSymbols=false
 
       - name: Publish to nuget.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
-          dotnet nuget push ./artifacts/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push ./publish/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
