@@ -18,8 +18,8 @@ jobs:
           source-url: https://nuget.pkg.github.com/haessen1998/index.json
         env:
           NUGET_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-      - run: dotnet build --configuration Release PlaywrightAutomation.csproj
+      - run: dotnet build --configuration Release ./src/PlaywrightAutomation.csproj
       - name: Create the package
-        run: dotnet pack --configuration Release PlaywrightAutomation.csproj
+        run: dotnet pack --configuration Release ./src/PlaywrightAutomation.csproj
       - name: Publish the package to GPR
-        run: dotnet nuget push PlaywrightAutomation/bin/Release/*.nupkg
+        run: dotnet nuget push ./src/PlaywrightAutomation/bin/Release/*.nupkg
