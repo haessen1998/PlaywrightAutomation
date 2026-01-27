@@ -1,0 +1,65 @@
+# Visual Studio / Rider / VS Code
+.vs/
+.vscode/
+.idea/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.sln.iml
+
+# Build output
+[Bb]in/
+[Oo]bj/
+artifacts/
+publish/
+**/publish/
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+*.snupkg
+
+# Runtime files
+*.log
+*.pid
+*.seed
+*.cache
+
+# Test results
+TestResults/
+*.trx
+*.coverage
+coverage.opencover.xml
+
+# Debug / symbols
+*.pdb
+*.mdb
+
+# Publish / deployment
+*.zip
+*.tar.gz
+
+# ASP.NET / configuration
+appsettings.Development.json
+local.settings.json
+secrets.json
+
+# Playwright (browsers / reports)
+.playwright/
+playwright-report/
+playwright-report.zip
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Node (if present)
+node_modules/
+
+# Editor temp files
+*~
+*.swp
