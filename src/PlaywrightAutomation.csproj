@@ -5,9 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-	<!-- 包信息：根据需要调整 PackageId、Description、Tags 等 -->
-	<PackageId>Haessen.Automation.Playwright</PackageId>
-	<Version>1.57.0</Version>
+	<PackageId>Automation.Playwright</PackageId>
+	<Version>1.57.1</Version>
 	<Authors>Haessen</Authors>
 	<Company>Haessen</Company>
 	<Product>PlaywrightAutomation</Product>
@@ -17,7 +16,7 @@
 	<RepositoryUrl>https://github.com/haessen1998/PlaywrightAutomation</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageProjectUrl>https://github.com/haessen1998/PlaywrightAutomation</PackageProjectUrl>
-	<PackageReleaseNotes>首次发布</PackageReleaseNotes>
+	<PackageReleaseNotes>修改命名空间的层级</PackageReleaseNotes>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 
 	<!-- 在打包/发布时常用设置 -->

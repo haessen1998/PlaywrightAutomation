@@ -1,14 +1,14 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
-using PlaywrightAutomation.Core.Data;
-using PlaywrightAutomation.Core.Exceptions;
-using PlaywrightAutomation.Core.Extensions;
-using PlaywrightAutomation.Core.Interfaces;
+using PlaywrightAutomation.Data;
+using PlaywrightAutomation.Exceptions;
+using PlaywrightAutomation.Extensions;
+using PlaywrightAutomation.Interfaces;
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
 
-namespace PlaywrightAutomation.Core.Services;
+namespace PlaywrightAutomation.Services;
 
 public class PlaywrightService(
     IOptions<PlaywrightOptions> options) : IPlaywrightService

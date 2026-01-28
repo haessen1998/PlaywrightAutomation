@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PlaywrightAutomation.Core.Data;
+namespace PlaywrightAutomation.Data;
 
 public class RetryOptions
 {

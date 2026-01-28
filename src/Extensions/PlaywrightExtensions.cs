@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
 
-namespace PlaywrightAutomation.Core.Extensions;
+namespace PlaywrightAutomation.Extensions;
 
 /// <summary>
 /// Playwright 扩展方法

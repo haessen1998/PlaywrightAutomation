@@ -28,7 +28,7 @@ jobs:
         working-directory: src
 
       - name: Pack
-        run: dotnet pack PlaywrightAutomation.csproj --configuration Release -o ./publish /p:IncludeSymbols=false
+        run: dotnet pack PlaywrightAutomation.csproj --configuration Release -o ./publish
         working-directory: src
 
       - name: Publish to nuget.org

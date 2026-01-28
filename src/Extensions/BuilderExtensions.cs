@@ -1,14 +1,14 @@
 ﻿using DecoratR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using PlaywrightAutomation.Core.Data;
-using PlaywrightAutomation.Core.Decorators;
-using PlaywrightAutomation.Core.Interfaces;
-using PlaywrightAutomation.Core.Services;
+using PlaywrightAutomation.Data;
+using PlaywrightAutomation.Decorators;
+using PlaywrightAutomation.Interfaces;
+using PlaywrightAutomation.Services;
 using System.ComponentModel;
 using System.Reflection;
 
-namespace PlaywrightAutomation.Core.Extensions;
+namespace PlaywrightAutomation.Extensions;
 
 public static class BuilderExtensions
 {

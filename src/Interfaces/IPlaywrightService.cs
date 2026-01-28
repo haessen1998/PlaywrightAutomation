@@ -1,6 +1,6 @@
 ﻿using Microsoft.Playwright;
 
-namespace PlaywrightAutomation.Core.Interfaces;
+namespace PlaywrightAutomation.Interfaces;
 
 public interface IPlaywrightService
 {

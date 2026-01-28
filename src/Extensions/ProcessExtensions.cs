@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace PlaywrightAutomation.Core.Extensions;
+namespace PlaywrightAutomation.Extensions;
 
 /// <summary>
 /// Process 扩展方法

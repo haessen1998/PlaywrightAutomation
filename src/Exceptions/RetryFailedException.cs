@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace PlaywrightAutomation.Core.Exceptions;
+namespace PlaywrightAutomation.Exceptions;
 
 public class RetryFailedException : Exception
 {

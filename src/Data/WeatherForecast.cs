@@ -1,4 +1,4 @@
-namespace PlaywrightAutomation.Core.Data;
+namespace PlaywrightAutomation.Data;
 
 public class WeatherForecast
 {

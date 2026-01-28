@@ -1,23 +1,23 @@
 # PlaywrightAutomation
 
-PlaywrightAutomation ÊÇÒ»¸öÎª .NET Ó¦ÓÃ·â×°µÄ Playwright ¿â£¬±ãÓÚÍ¨¹ıÒÀÀµ×¢ÈëÓëÍĞ¹Ü·şÎñÔÚÓ¦ÓÃÖĞÖ´ĞĞä¯ÀÀÆ÷×Ô¶¯»¯ / ²âÊÔÈÎÎñ¡£
+PlaywrightAutomation æ˜¯ä¸€ä¸ªä¸º .NET åº”ç”¨å°è£…çš„ Playwright åº“ï¼Œä¾¿äºé€šè¿‡ä¾èµ–æ³¨å…¥ä¸æ‰˜ç®¡æœåŠ¡åœ¨åº”ç”¨ä¸­æ‰§è¡Œæµè§ˆå™¨è‡ªåŠ¨åŒ– / æµ‹è¯•ä»»åŠ¡ã€‚
 
-## °²×°
+## å®‰è£…
 
 ``` bash
 dotnet add package Haessen.PlaywrightAutomation --version 1.57.0
 ```
 
-## ¿ìËÙ¿ªÊ¼£¨Ê¾Àı£©
+## å¿«é€Ÿå¼€å§‹ï¼ˆç¤ºä¾‹ï¼‰
 
-ÏÂÃæÊ¾ÀıÕ¹Ê¾ÁËµäĞÍµÄ×¢²áÓëÊ¹ÓÃ·½Ê½£¬»ùÓÚ `Program.cs` / `Startup.cs` ºÍÒ»¸ö¿ØÖÆÆ÷Ê¾Àı¡£
+ä¸‹é¢ç¤ºä¾‹å±•ç¤ºäº†å…¸å‹çš„æ³¨å†Œä¸ä½¿ç”¨æ–¹å¼ï¼ŒåŸºäº `Program.cs` / `Startup.cs` å’Œä¸€ä¸ªæ§åˆ¶å™¨ç¤ºä¾‹ã€‚
 
-`Program.cs`£¨»ò `Startup.cs`£©£º
+`Program.cs`ï¼ˆæˆ– `Startup.cs`ï¼‰ï¼š
 
 ``` csharp
 var builder = WebApplication.CreateBuilder(args);
 
-// ×¢²á Playwright ·şÎñ
+// æ³¨å†Œ Playwright æœåŠ¡
 builder.AddPlaywrightDefaults();
 builder.Services.AddControllers();
 
@@ -27,7 +27,7 @@ app.Run();
 
 ```
 
-Ê¾Àı¿ØÖÆÆ÷£º
+ç¤ºä¾‹æ§åˆ¶å™¨ï¼š
 
 ``` csharp
 
@@ -37,15 +37,15 @@ public class PlaywrightController(
     ILogger<PlaywrightController> logger,
     IPlaywrightService playwrightService) : ControllerBase
 {
-    #region »ñÈ¡ÔªËØ
+    #region è·å–å…ƒç´ 
 
     /// <summary>
-    /// »ñÈ¡Ö¸¶¨ URL µÄÔªËØÁĞ±í
+    /// è·å–æŒ‡å®š URL çš„å…ƒç´ åˆ—è¡¨
     /// </summary>
-    /// <param name="url">Ä¿±ê URL</param>
-    /// <param name="selector">CSS Ñ¡ÔñÆ÷</param>
-    /// <param name="attribute">ÊôĞÔÃû³Æ£¨Èç href »ò text£©</param>
-    /// <returns>ÔªËØÁĞ±í</returns>
+    /// <param name="url">ç›®æ ‡ URL</param>
+    /// <param name="selector">CSS é€‰æ‹©å™¨</param>
+    /// <param name="attribute">å±æ€§åç§°ï¼ˆå¦‚ href æˆ– textï¼‰</param>
+    /// <returns>å…ƒç´ åˆ—è¡¨</returns>
     [HttpGet]
     public async Task<IActionResult> GetElementList(string url, string selector, string attribute)
     {
@@ -56,18 +56,18 @@ public class PlaywrightController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "»ñÈ¡ÔªËØÁĞ±íÊ§°Ü");
-            return StatusCode(500, $"»ñÈ¡ÔªËØÁĞ±íÊ§°Ü: {ex.Message}");
+            logger.LogError(ex, "è·å–å…ƒç´ åˆ—è¡¨å¤±è´¥");
+            return StatusCode(500, $"è·å–å…ƒç´ åˆ—è¡¨å¤±è´¥: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// »ñÈ¡Ö¸¶¨ URL µÄÔªËØÄÚÈİ
+    /// è·å–æŒ‡å®š URL çš„å…ƒç´ å†…å®¹
     /// </summary>
-    /// <param name="url">Ä¿±ê URL</param>
-    /// <param name="selector">CSS Ñ¡ÔñÆ÷</param>
-    /// <param name="attribute">ÊôĞÔÃû³Æ£¨Èç html »ò text£©</param>
-    /// <returns>ÔªËØÄÚÈİ</returns>
+    /// <param name="url">ç›®æ ‡ URL</param>
+    /// <param name="selector">CSS é€‰æ‹©å™¨</param>
+    /// <param name="attribute">å±æ€§åç§°ï¼ˆå¦‚ html æˆ– textï¼‰</param>
+    /// <returns>å…ƒç´ å†…å®¹</returns>
     [HttpGet]
     public async Task<IActionResult> GetElement(string url, string selector, string attribute)
     {
@@ -78,8 +78,8 @@ public class PlaywrightController(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "»ñÈ¡ÔªËØÄÚÈİÊ§°Ü");
-            return StatusCode(500, $"»ñÈ¡ÔªËØÄÚÈİÊ§°Ü: {ex.Message}");
+            logger.LogError(ex, "è·å–å…ƒç´ å†…å®¹å¤±è´¥");
+            return StatusCode(500, $"è·å–å…ƒç´ å†…å®¹å¤±è´¥: {ex.Message}");
         }
     }
     #endregion
@@ -88,10 +88,10 @@ public class PlaywrightController(
 
 ```
 
-## ÎÄµµÓë²Ö¿â
+## æ–‡æ¡£ä¸ä»“åº“
 
-¸ü¶àÎÄµµÇë²Î¼û²Ö¿âÖ÷Ò³£ºhttps://github.com/haessen1998/PlaywrightAutomation
+æ›´å¤šæ–‡æ¡£è¯·å‚è§ä»“åº“ä¸»é¡µï¼šhttps://github.com/haessen1998/PlaywrightAutomation
 
-## Ğí¿ÉÖ¤
+## è®¸å¯è¯
 
-±¾ÏîÄ¿Ê¹ÓÃ MIT Ğí¿ÉÖ¤£¨Ïê¼û `LICENSE.txt`£©¡£
+æœ¬é¡¹ç›®ä½¿ç”¨ MIT è®¸å¯è¯ï¼ˆè¯¦è§ `LICENSE.txt`ï¼‰ã€‚

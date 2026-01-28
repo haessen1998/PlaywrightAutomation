@@ -2,7 +2,7 @@
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
 
-namespace PlaywrightAutomation.Core.Decorators;
+namespace PlaywrightAutomation.Decorators;
 
 public class PlaywrightLoggingDecorator(
     Interfaces.IPlaywrightService inner,
