@@ -5,7 +5,7 @@ PlaywrightAutomation 是一个为 .NET 应用封装的 Playwright 库，便于�
 ## 安装
 
 ``` bash
-dotnet add package Haessen.PlaywrightAutomation --version 1.57.0
+dotnet add package Automation.Playwright --version 1.*.*
 ```
 
 ## 快速开始（示例）
