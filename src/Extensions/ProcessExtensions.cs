@@ -83,6 +83,82 @@ public static class ProcessExtensions
         }
     }
 
+    public static async Task<Data.ProcResult> RunProcessAsync(
+        string fileName,
+        List<string>? arguments,
+        int timeoutMs = 120_000,
+        CancellationToken cancellation = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+
+        if (timeoutMs > 0)
+        {
+            cts.CancelAfter(timeoutMs);
+        }
+
+        var psi = new ProcessStartInfo
+        {
+            FileName = fileName,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        foreach (var arg in arguments)
+        {
+            psi.ArgumentList.Add(arg);
+        }
+
+        var result = new Data.ProcResult();
+
+        try
+        {
+            using var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+            var stdout = new StringBuilder();
+            var stderr = new StringBuilder();
+
+            proc.OutputDataReceived += (_, e) =>
+            {
+                if (e.Data != null)
+                {
+                    stdout.AppendLine(e.Data);
+                }
+            };
+
+            proc.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data != null)
+                {
+                    stderr.AppendLine(e.Data);
+                }
+            };
+
+            proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
+
+            // Wait with cancellation
+            while (!proc.HasExited)
+            {
+                await Task.Delay(200, cts.Token).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnRanToCompletion);
+            }
+
+            result.ExitCode = proc.ExitCode;
+            result.StdOut = stdout.ToString();
+            result.StdErr = stderr.ToString();
+            return result;
+        }
+        catch (OperationCanceledException)
+        {
+            throw new Exception($"Process '{fileName} {arguments}' timed out or cancelled.");
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"Failed to start/execute process '{fileName} {arguments}': {ex.Message}", ex);
+        }
+    }
+
     public static async Task DownloadFileAsync(string url, string destFile, CancellationToken cancellation)
     {
         try

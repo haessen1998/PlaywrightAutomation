@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Playwright;
-using PlaywrightAutomation.Core.Interfaces;
+using PlaywrightAutomation.Interfaces;
 
-namespace PlaywrightAutomation.Controllers;
+namespace PlaywrightAutomation.API.Controllers;
 
 [ApiController]
 [Route("[controller]/[action]")]
@@ -46,7 +46,7 @@ public class PlaywrightController(
     {
         try
         {
-            var result = await playwrightService.GetElement(url, selector, string.Empty, attribute);
+            var result = await playwrightService.GetElement(url, selector, string.Empty, attribute: attribute);
             return Ok(result);
         }
         catch (Exception ex)

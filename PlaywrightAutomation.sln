@@ -1,0 +1,39 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.3.11415.281 d18.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaywrightAutomation", "src\PlaywrightAutomation.csproj", "{DE189F05-00C5-F0E6-4B12-2E3B2D482B84}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{DD42A3FF-125E-4384-A0E0-A4CF6167785F}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample", "sample", "{749A6375-D541-4B78-BC21-B50412EDCE97}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PlaywrightAutomation.API", "sample\PlaywrightAutomation.API\PlaywrightAutomation.API.csproj", "{0B25F934-430E-EAC0-16D3-B2F5E84E1426}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{DE189F05-00C5-F0E6-4B12-2E3B2D482B84}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DE189F05-00C5-F0E6-4B12-2E3B2D482B84}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DE189F05-00C5-F0E6-4B12-2E3B2D482B84}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DE189F05-00C5-F0E6-4B12-2E3B2D482B84}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B25F934-430E-EAC0-16D3-B2F5E84E1426}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B25F934-430E-EAC0-16D3-B2F5E84E1426}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B25F934-430E-EAC0-16D3-B2F5E84E1426}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B25F934-430E-EAC0-16D3-B2F5E84E1426}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{DE189F05-00C5-F0E6-4B12-2E3B2D482B84} = {DD42A3FF-125E-4384-A0E0-A4CF6167785F}
+		{0B25F934-430E-EAC0-16D3-B2F5E84E1426} = {749A6375-D541-4B78-BC21-B50412EDCE97}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {315DE013-2B94-4B96-9918-3809D98EE30A}
+	EndGlobalSection
+EndGlobal

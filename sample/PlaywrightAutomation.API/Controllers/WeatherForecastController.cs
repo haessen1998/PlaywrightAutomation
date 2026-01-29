@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using PlaywrightAutomation.Data;
 
-namespace PlaywrightAutomation.Controllers;
+namespace PlaywrightAutomation.API.Controllers;
 
 [ApiController]
 [Route("[controller]")]

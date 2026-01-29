@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+	<TargetFrameworks>net8.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
 	<PackageId>Automation.Playwright</PackageId>
-	<Version>1.57.1</Version>
+	<Version>1.57.2</Version>
 	<Authors>Haessen</Authors>
 	<Company>Haessen</Company>
 	<Product>PlaywrightAutomation</Product>
@@ -16,7 +16,7 @@
 	<RepositoryUrl>https://github.com/haessen1998/PlaywrightAutomation</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageProjectUrl>https://github.com/haessen1998/PlaywrightAutomation</PackageProjectUrl>
-	<PackageReleaseNotes>修改命名空间的层级</PackageReleaseNotes>
+	<PackageReleaseNotes>新增注入的方式，适配配置文件和代码配置</PackageReleaseNotes>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 
 	<!-- 在打包/发布时常用设置 -->

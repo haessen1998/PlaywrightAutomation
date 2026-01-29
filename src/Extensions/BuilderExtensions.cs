@@ -5,8 +5,6 @@ using PlaywrightAutomation.Data;
 using PlaywrightAutomation.Decorators;
 using PlaywrightAutomation.Interfaces;
 using PlaywrightAutomation.Services;
-using System.ComponentModel;
-using System.Reflection;
 
 namespace PlaywrightAutomation.Extensions;
 
@@ -28,6 +26,22 @@ public static class BuilderExtensions
 
         return builder;
 
+    }
+
+    public static TBuilder AddPlaywrightDefaults<TBuilder>(this TBuilder builder,RetryOptions retry, PlaywrightOptions playwright) where TBuilder : IHostApplicationBuilder
+    {
+        builder.Services.Configure<RetryOptions>(options => options = retry);
+        builder.Services.Configure<PlaywrightOptions>(options => options = playwright);
+
+        // Add decoration
+        builder.Services.Decorate<IPlaywrightService>()
+                .With<PlaywrightLoggingDecorator>()
+                .Then<PlaywrightRetryDecorator>()
+                .Then<PlaywrightService>()
+                .AsSingleton()
+                .Apply();
+
+        return builder;
     }
 
 }
