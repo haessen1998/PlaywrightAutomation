@@ -63,10 +63,6 @@ public class PlaywrightController(
 
 ```
 
-## 文档与仓库
-
-更多文档请参见仓库主页：https://github.com/haessen1998/PlaywrightAutomation
-
 ## 许可证
 
 本项目使用 MIT 许可证（详见 `LICENSE.txt`）。
