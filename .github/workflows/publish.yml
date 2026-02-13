@@ -21,19 +21,19 @@ jobs:
 
       - name: Restore
         run: dotnet restore
-        working-directory: src
+        working-directory: src/PlaywrightAutomation
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
-        working-directory: src
+        working-directory: src/PlaywrightAutomation
 
       - name: Pack
         run: dotnet pack PlaywrightAutomation.csproj --configuration Release -o ./publish
-        working-directory: src
+        working-directory: src/PlaywrightAutomation
 
       - name: Publish to nuget.org
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
         run: |
           dotnet nuget push ./publish/*.nupkg --api-key $NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
-        working-directory: src
+        working-directory: src/PlaywrightAutomation

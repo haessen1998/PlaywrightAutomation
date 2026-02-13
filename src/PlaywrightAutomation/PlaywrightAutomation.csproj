@@ -35,7 +35,7 @@
 	
   <!-- 如果有自定义 README 需要包含在包中 -->
   <ItemGroup>
-  	<None Include="..\README.md" Pack="true" PackagePath="" />
-  	<None Include="..\LICENSE.txt" Pack="true" PackagePath="" />
+  	<None Include="..\..\README.md" Pack="true" PackagePath="" />
+  	<None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
   </ItemGroup>
 </Project>
