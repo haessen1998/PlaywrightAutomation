@@ -2,7 +2,7 @@ using Microsoft.Extensions.Hosting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// builder.AddServiceDefaults();
+builder.AddServiceDefaults();
 
 builder.AddPlaywrightDefaults();
 
@@ -15,6 +15,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.MapDefaultEndpoints();
 
 //app.MapDefaultEndpoints();
 

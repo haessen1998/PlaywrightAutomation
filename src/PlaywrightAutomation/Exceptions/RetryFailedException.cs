@@ -8,7 +8,7 @@ namespace PlaywrightAutomation.Exceptions;
 
 public class RetryFailedException : Exception
 {
-    public RetryFailedException(string message, Exception innerException) : base(message, innerException) { }
+    public RetryFailedException(string message, Exception? innerException) : base(message, innerException) { }
 }
 
 public class InstallFailedException : Exception

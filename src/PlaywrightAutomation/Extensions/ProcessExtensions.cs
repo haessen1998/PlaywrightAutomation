@@ -105,10 +105,7 @@ public static class ProcessExtensions
             CreateNoWindow = true,
         };
 
-        foreach (var arg in arguments)
-        {
-            psi.ArgumentList.Add(arg);
-        }
+        arguments?.ForEach(psi.ArgumentList.Add);
 
         var result = new Data.ProcResult();
 
@@ -189,7 +186,8 @@ public static class ProcessExtensions
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 });
-                p.WaitForExit();
+
+                p?.WaitForExit();
             }
             catch
             {

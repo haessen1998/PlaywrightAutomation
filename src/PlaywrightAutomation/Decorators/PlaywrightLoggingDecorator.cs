@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
+using PlaywrightAutomation.Data;
 
 namespace PlaywrightAutomation.Decorators;
 
@@ -17,9 +18,25 @@ public class PlaywrightLoggingDecorator(
 
     public async Task<IBrowser> GetBrowserAsync()
     {
+        logger.LogDebug("Get broswer");
+
         var result = await inner.GetBrowserAsync();
 
-        logger.LogDebug("Get broswer");
+        return result;
+    }
+
+    public async Task<IBrowser> GetCustomBrowserAsync(
+        bool headless = true, 
+        PlaywrightConnectionMode mode = PlaywrightConnectionMode.Default, 
+        string? server = "http://localhost:9222/", 
+        string? channel = "chrome", 
+        string[]? args = null, 
+        int slow = 100, 
+        bool persistent = false)
+    {
+        logger.LogDebug("Get custom broswer");
+
+        var result = await inner.GetCustomBrowserAsync(headless, mode, server, channel, args, slow, persistent);
 
         return result;
     }

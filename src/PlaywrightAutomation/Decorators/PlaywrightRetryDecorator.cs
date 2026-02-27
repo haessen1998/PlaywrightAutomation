@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
+using PlaywrightAutomation.Data;
 
 namespace PlaywrightAutomation.Decorators;
 
@@ -46,6 +47,34 @@ public class PlaywrightRetryDecorator(
             try
             {
                 var result = await inner.GetBrowserAsync();
+
+                return result;
+            }
+            catch (Exception ex) when (IsRetryable(ex))
+            {
+                lastError = ex;
+
+                logger.LogWarning(ex, "尝试{attempt}/{maxRetries}失败: {message}", attempt, retry.MaxRetries, ex.Message);
+
+                await Task.Delay(retry.RetryIntervalMs * attempt);
+            }
+        }
+
+        // 所有重试失败后抛出
+        throw new Exceptions.RetryFailedException($"经过{retry.MaxRetries}次重试失败", lastError);
+    }
+
+    public async Task<IBrowser> GetCustomBrowserAsync(bool headless = true, PlaywrightConnectionMode mode = PlaywrightConnectionMode.Default, string? server = "http://localhost:9222/", string? channel = "chrome", string[]? args = null, int slow = 100, bool persistent = false)
+    {
+        var retry = options.Value;
+
+        Exception? lastError = null;
+
+        for (int attempt = 1; attempt <= retry.MaxRetries; attempt++)
+        {
+            try
+            {
+                var result = await inner.GetCustomBrowserAsync(headless, mode, server, channel, args, slow, persistent);
 
                 return result;
             }

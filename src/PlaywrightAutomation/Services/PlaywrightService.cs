@@ -15,35 +15,32 @@ public class PlaywrightService(
 {
     private IBrowser? _browser;
 
-    private async Task InitializeAsync(
-        bool headless = true,
-        PlaywrightConnectionMode mode = PlaywrightConnectionMode.Local,
-        string? server = "http://localhost:9222/",
-        string? channel = "msedge",
-        int slow = 100)
+    private async Task InitializeAsync()
     {
+        var settings = options.Value;
+
         var playwright = await Playwright.CreateAsync();
 
-        _browser = mode switch
+        _browser = settings.Mode switch
         {
             PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchAsync(new()
             {
-                SlowMo = slow,
-                Headless = headless,
+                SlowMo = settings.Slow,
+                Headless = settings.Headless,
                 Timeout = 0
             }),
             PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchAsync(new()
             {
-                Channel = channel ?? "msedge",
-                SlowMo = slow,
-                Headless = headless,
+                Channel = settings.Channel ?? "msedge",
+                SlowMo = settings.Slow,
+                Headless = settings.Headless,
                 Timeout = 0,
                 IgnoreDefaultArgs = [ "--enable-automation" ],
-                Args = [ "--no-sandbox", "--disable-gpu" ]
+                Args = settings.Args??[ "--no-sandbox", "--disable-gpu" ]
             }),
-            PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(server ?? "ws://playwright-server:3000/"),
-            PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(server ?? "http://playwright-server:9222/"),
-            _ => await playwright.Chromium.ConnectOverCDPAsync(server ?? "http://localhost:9222/")
+            PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(settings.Server ?? "ws://playwright-server:3000/"),
+            PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(settings.Server ?? "http://playwright-server:9222/"),
+            _ => throw new NotImplementedException()
         };
     }
 
@@ -60,7 +57,6 @@ public class PlaywrightService(
         string attribute = "href",
         string? cookies = null)
     {
-        //var page = await GetPageAsync(url, cookies);
         var browser = await GetBrowserAsync();
 
         await using var context = await browser!.NewContextAsync();
@@ -78,28 +74,23 @@ public class PlaywrightService(
                 .Select(pair =>
                 {
                     var idx = pair.IndexOf('=');
-                    if (idx <= 0) return null;
                     var name = pair.Substring(0, idx).Trim();
                     var value = pair.Substring(idx + 1).Trim();
-
-                    // 特殊处理 token 字段，避免泄露
-                    if (name == "token") return null;
-
                     return new Cookie
                     {
                         Name = name,
                         Value = value,
-                        // 指定 Url 更可靠（避免 Domain 设置错误）；Playwright 会把 cookie 关联到该 URL 的域
-                        Url = origin,
-                        // Path = "/"
-                        // Url = baseUrl,
+                        Url = origin
                     };
                 })
                 .Where(c => c != null)
-                .ToArray();
+                .ToList() ;
 
             // 在导航之前把 cookie 添加到 context
-            await context.AddCookiesAsync(cookieObjects);
+            if (cookieObjects != null && cookieObjects.Any())
+            {
+                await context.AddCookiesAsync(cookieObjects);
+            }
 
             // 验证 cookie 是否已被添加到 context（比 document.cookie 更可靠，能看到 HttpOnly）
             var saved = await context.CookiesAsync([origin]);
@@ -156,28 +147,23 @@ public class PlaywrightService(
                 .Select(pair =>
                 {
                     var idx = pair.IndexOf('=');
-                    if (idx <= 0) return null;
                     var name = pair.Substring(0, idx).Trim();
                     var value = pair.Substring(idx + 1).Trim();
-
-                    // 特殊处理 token 字段，避免泄露
-                    if (name == "token") return null;
-
                     return new Cookie
                     {
                         Name = name,
                         Value = value,
-                        // 指定 Url 更可靠（避免 Domain 设置错误）；Playwright 会把 cookie 关联到该 URL 的域
-                        Url = origin,
-                        // Path = "/"
-                        // Url = baseUrl,
+                        Url = origin
                     };
                 })
                 .Where(c => c != null)
                 .ToArray();
 
             // 在导航之前把 cookie 添加到 context
-            await context.AddCookiesAsync(cookieObjects);
+            if (cookieObjects != null && cookieObjects.Any())
+            {
+                await context.AddCookiesAsync(cookieObjects);
+            }
 
             // 验证 cookie 是否已被添加到 context（比 document.cookie 更可靠，能看到 HttpOnly）
             var saved = await context.CookiesAsync([origin]);
@@ -217,10 +203,73 @@ public class PlaywrightService(
 
         if (_browser == null)
         {
-            await InitializeAsync(settings.Headless, settings.Mode, settings.Server, settings.Channel);
+            await InitializeAsync();
         }
 
         return _browser ?? throw new InvalidOperationException("Browser初始化失败");
+    }
+
+    public async Task<IBrowser> GetCustomBrowserAsync(
+        bool headless = true,
+        PlaywrightConnectionMode mode = PlaywrightConnectionMode.Default,
+        string? server = "http://localhost:9222/",
+        string? channel = "chrome",
+        string[]? args = null,
+        int slow = 100, 
+        bool persistent = false)
+    {
+        var dataDirectory = Path.Combine(AppContext.BaseDirectory, "data");
+
+        var playwright = await Playwright.CreateAsync();
+
+        if (persistent)
+        {
+            var browserContext = mode switch
+            {
+                PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchPersistentContextAsync(dataDirectory, new()
+                {
+                    SlowMo = slow,
+                    Headless = headless,
+                    Timeout = 0
+                }),
+                PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchPersistentContextAsync(dataDirectory, new()
+                {
+                    Channel = channel ?? "msedge",
+                    SlowMo = slow,
+                    Headless = headless,
+                    Timeout = 0,
+                    IgnoreDefaultArgs = ["--enable-automation"],
+                    Args = args ?? ["--no-sandbox", "--disable-gpu"]
+                }),
+                _ => throw new NotImplementedException()
+            };
+
+            return browserContext.Browser;
+        }
+
+        IBrowser browser = mode switch
+        {
+            PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchAsync(new()
+            {
+                SlowMo = slow,
+                Headless = headless,
+                Timeout = 0
+            }),
+            PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchAsync(new()
+            {
+                Channel = channel ?? "msedge",
+                SlowMo = slow,
+                Headless = headless,
+                Timeout = 0,
+                IgnoreDefaultArgs = ["--enable-automation"],
+                Args = args ?? ["--no-sandbox", "--disable-gpu"]
+            }),
+            PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(server ?? "ws://playwright-server:3000/"),
+            PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(server ?? "http://playwright-server:9222/"),
+            _ => throw new NotImplementedException()
+        };    
+
+        return browser ?? throw new InvalidOperationException("Browser初始化失败");
     }
 
     public async Task EnsureInstalledAsync(
@@ -246,7 +295,7 @@ public class PlaywrightService(
 
         var dotnetResult = await ProcessExtensions.RunProcessAsync("dotnet", "--version", timeoutMs: 30_000, cancellation: cancellation);
 
-        if (dotnetResult.ExitCode!=0)
+        if (dotnetResult.ExitCode != 0) 
         {
             progress?.Report("Failed to find .NET SDK.");
 
@@ -311,7 +360,7 @@ public class PlaywrightService(
         }
         else
         {
-            progress?.Report($".NET SDK found: {dotnetResult.StdOut.Trim()}");
+            progress?.Report($".NET SDK found: {dotnetResult?.StdOut?.Trim()}");
         }   
 
         // 2) Ensure Playwright CLI exists in tools
@@ -322,7 +371,7 @@ public class PlaywrightService(
             ? Directory.GetFiles(toolDirectory, "playwright*", SearchOption.TopDirectoryOnly)
             : Array.Empty<string>();
 
-        string cliExec = null;
+        string cliExec = string.Empty;
 
         if (candidates.Length > 0)
         {
@@ -389,13 +438,12 @@ public class PlaywrightService(
                     }
                 }
             }
+
             // fallback to first candidate under top folder
             if (string.IsNullOrWhiteSpace(cliExec))
             {
-                cliExec = Directory.GetFiles(toolDirectory, "*", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                cliExec = Directory.GetFiles(toolDirectory, "*", SearchOption.TopDirectoryOnly).FirstOrDefault() ?? throw new InstallFailedException("Could not locate playwright executable after installation.");
             }
-            if (string.IsNullOrWhiteSpace(cliExec))
-                throw new InstallFailedException("Could not locate playwright executable after installation.");
 
             ProcessExtensions.MakeExecutable(cliExec);
 

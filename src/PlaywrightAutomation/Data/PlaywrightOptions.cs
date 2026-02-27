@@ -21,6 +21,10 @@ public class PlaywrightOptions
     public int ElementIntervalMs { get; set; }
 
     public int VideoIntervalMs { get; set; }
+
+    public float? Slow { get; set; } 
+
+    public string[]? Args { get; set; } 
 }
 
 public enum PlaywrightConnectionMode
