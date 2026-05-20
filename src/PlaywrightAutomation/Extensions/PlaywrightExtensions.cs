@@ -1,5 +1,5 @@
-﻿using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
+using PlaywrightAutomation.Exceptions;
 
 namespace PlaywrightAutomation.Extensions;
 
@@ -8,33 +8,32 @@ namespace PlaywrightAutomation.Extensions;
 /// </summary>
 public static class PlaywrightExtensions
 {
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="page"></param>
-    /// <param name="selector"></param>
-    /// <param name="url"></param>
-    /// <param name="attribute"></param>
-    /// <param name="pageTimeout"></param>
-    /// <param name="elementTimeout"></param>
-    /// <returns></returns>
-    public static async ValueTask<List<string>> GetElementList(this IPage page,
+    public static async ValueTask<List<string>> GetElementList(
+        this IPage page,
         string selector,
         string attribute = "href",
-        int elementTimeout = 60000)
+        int elementTimeout = 60_000)
     {
         List<string> results = new();
 
-        await page.WaitForSelectorAsync(selector, new()
+        try
         {
-            Timeout = elementTimeout
-        });
+            await page.WaitForSelectorAsync(selector, new()
+            {
+                Timeout = elementTimeout
+            });
+        }
+        catch (PlaywrightException ex)
+        {
+            throw new AutomationException(
+                $"Element list selector was not ready: {selector}.",
+                AutomationFailureCategory.ElementNotFound,
+                true,
+                ex);
+        }
 
-        // 获取所有匹配元素
         var elements = await page.QuerySelectorAllAsync(selector);
 
-        // 遍历每个元素获取属性值
         foreach (var element in elements)
         {
             string? value = attribute switch
@@ -52,31 +51,40 @@ public static class PlaywrightExtensions
         return results;
     }
 
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="page"></param>
-    /// <param name="selector"></param>
-    /// <param name="readyText"></param>
-    /// <param name="attribute"></param>
-    /// <param name="elementTimeout"></param>
-    /// <returns></returns>
-    /// <exception cref="Exception"></exception>
-    public static async ValueTask<string?> GetElement(this IPage page,
+    public static async ValueTask<string?> GetElement(
+        this IPage page,
         string selector,
         string? readyText,
         WaitForSelectorState state = WaitForSelectorState.Visible,
         string attribute = "text",
-        int elementTimeout = 60000)
+        int elementTimeout = 60_000)
     {
-        var element = await page.WaitForSelectorAsync(selector, new()
-        {
-            Timeout = elementTimeout,
-            State= state
-        });
+        IElementHandle? element;
 
-        if (element == null) throw new Exception("element not ready");
+        try
+        {
+            element = await page.WaitForSelectorAsync(selector, new()
+            {
+                Timeout = elementTimeout,
+                State = state
+            });
+        }
+        catch (PlaywrightException ex)
+        {
+            throw new AutomationException(
+                $"Element selector was not ready: {selector}.",
+                AutomationFailureCategory.ElementNotFound,
+                true,
+                ex);
+        }
+
+        if (element == null)
+        {
+            throw new AutomationException(
+                $"Element selector was not ready: {selector}.",
+                AutomationFailureCategory.ElementNotFound,
+                true);
+        }
 
         string? value = attribute switch
         {
@@ -87,35 +95,42 @@ public static class PlaywrightExtensions
             _ => await element.GetAttributeAsync(attribute)
         };
 
-        if (string.IsNullOrWhiteSpace(value)) throw new Exception("element not ready");
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new AutomationException(
+                $"Element value was empty: {selector}.",
+                AutomationFailureCategory.ValidationFailed,
+                true);
+        }
 
-        if (!string.IsNullOrWhiteSpace(readyText) && !value.Contains(readyText)) throw new Exception("element not ready");
+        if (!string.IsNullOrWhiteSpace(readyText) && !value.Contains(readyText))
+        {
+            throw new AutomationException(
+                $"Element value did not contain the expected ready text: {selector}.",
+                AutomationFailureCategory.ValidationFailed,
+                true);
+        }
 
         return value;
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="page"></param>
-    /// <param name="fullPage"></param>
-    /// <param name="path"></param>
-    /// <returns></returns>
-    public static async Task<string> TakeScreenshotAsync(this IPage page, 
-        bool fullPage = true, 
+    public static async Task<string> TakeScreenshotAsync(
+        this IPage page,
+        bool fullPage = true,
         string? path = null)
     {
-        var directory= !string.IsNullOrWhiteSpace(path)? 
-            System.IO.Path.GetDirectoryName(path):
-            Path.Combine(AppContext.BaseDirectory, "Screenshots");
+        var directory = !string.IsNullOrWhiteSpace(path)
+            ? Path.GetDirectoryName(path)
+            : Path.Combine(AppContext.BaseDirectory, "Screenshots");
 
-        if (!string.IsNullOrWhiteSpace(directory) && !System.IO.Directory.Exists(directory))
+        if (!string.IsNullOrWhiteSpace(directory) && !Directory.Exists(directory))
         {
-            System.IO.Directory.CreateDirectory(directory);
+            Directory.CreateDirectory(directory);
         }
 
-        var savePath = !string.IsNullOrWhiteSpace(path) ? path :
-            Path.Combine(directory!, $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
+        var savePath = !string.IsNullOrWhiteSpace(path)
+            ? path
+            : Path.Combine(directory!, $"screenshot_{DateTime.Now:yyyyMMdd_HHmmss_fff}.png");
 
         await page.ScreenshotAsync(new PageScreenshotOptions
         {
@@ -126,24 +141,6 @@ public static class PlaywrightExtensions
         return savePath;
     }
 
-    /// <summary>
-    /// await WaitUntilAsync(
-    ///     async() =>
-    ///     {
-    ///         var empty = await EmptyCell.IsVisibleAsync();
-    ///         var rowCount = await ResultRows.CountAsync();
-    ///         return empty || rowCount > 0;
-    ///     },
-    ///     TimeSpan.FromSeconds(30),
-    ///     TimeSpan.FromMilliseconds(500),
-    ///     $"搜索结果未刷新: {companyName}");
-    /// </summary>
-    /// <param name="predicate"></param>
-    /// <param name="timeout"></param>
-    /// <param name="interval"></param>
-    /// <param name="timeoutMessage"></param>
-    /// <returns></returns>
-    /// <exception cref="TimeoutException"></exception>
     public static async Task WaitUntilAsync(
         Func<Task<bool>> predicate,
         TimeSpan timeout,
@@ -154,10 +151,17 @@ public static class PlaywrightExtensions
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            if (await predicate()) return;
+            if (await predicate())
+            {
+                return;
+            }
+
             await Task.Delay(interval);
         }
 
-        throw new TimeoutException(timeoutMessage);
+        throw new AutomationException(
+            timeoutMessage,
+            AutomationFailureCategory.PageTimeout,
+            true);
     }
 }

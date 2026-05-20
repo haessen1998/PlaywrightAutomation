@@ -1,228 +1,103 @@
-﻿using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Options;
 using Microsoft.Playwright;
 using PlaywrightAutomation.Data;
 using PlaywrightAutomation.Exceptions;
 using PlaywrightAutomation.Extensions;
 using PlaywrightAutomation.Interfaces;
-using System;
-using System.IO;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 
 namespace PlaywrightAutomation.Services;
 
-public class PlaywrightService(
-    IOptions<PlaywrightOptions> options) : IPlaywrightService
+public class PlaywrightService(IOptions<PlaywrightOptions> options) : IPlaywrightService
 {
+    private readonly ConcurrentDictionary<IBrowser, byte> _ownedBrowsers = new();
+    private readonly ConcurrentDictionary<IBrowserContext, byte> _ownedPersistentContexts = new();
+    private readonly SemaphoreSlim _playwrightLock = new(1, 1);
+    private readonly SemaphoreSlim _configuredBrowserLock = new(1, 1);
+    private IPlaywright? _playwright;
     private IBrowser? _browser;
+    private bool _disposed;
 
-    private async Task InitializeAsync()
+    private async Task<IPlaywright> GetPlaywrightAsync()
     {
-        var settings = options.Value;
+        ThrowIfDisposed();
 
-        var playwright = await Playwright.CreateAsync();
-
-        _browser = settings.Mode switch
+        if (_playwright != null)
         {
-            PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchAsync(new()
-            {
-                SlowMo = settings.Slow,
-                Headless = settings.Headless,
-                Timeout = 0
-            }),
-            PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchAsync(new()
-            {
-                Channel = settings.Channel ?? "msedge",
-                SlowMo = settings.Slow,
-                Headless = settings.Headless,
-                Timeout = 0,
-                IgnoreDefaultArgs = [ "--enable-automation" ],
-                Args = settings.Args??[ "--no-sandbox", "--disable-gpu" ]
-            }),
-            PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(settings.Server ?? "ws://playwright-server:3000/"),
-            PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(settings.Server ?? "http://playwright-server:9222/"),
-            _ => throw new NotImplementedException()
-        };
+            return _playwright;
+        }
+
+        await _playwrightLock.WaitAsync();
+        try
+        {
+            _playwright ??= await Playwright.CreateAsync();
+            return _playwright;
+        }
+        catch (Exception ex)
+        {
+            throw new AutomationException("Playwright runtime initialization failed.", AutomationFailureCategory.ExternalSystemError, true, ex);
+        }
+        finally
+        {
+            _playwrightLock.Release();
+        }
     }
 
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="url"></param>
-    /// <param name="selector"></param>
-    /// <param name="attribute"></param>
-    /// <returns></returns>
-    public async ValueTask<List<string>> GetElementList(
-        string url,
-        string selector,
-        string attribute = "href",
-        string? cookies = null)
+    private async Task<IBrowser> LaunchBrowserAsync(
+        bool headless,
+        PlaywrightConnectionMode mode,
+        string? server,
+        string? channel,
+        string[]? args,
+        float? slow)
     {
-        var browser = await GetBrowserAsync();
+        var playwright = await GetPlaywrightAsync();
 
-        await using var context = await browser!.NewContextAsync();
-
-        if (!string.IsNullOrWhiteSpace(cookies) && !string.IsNullOrWhiteSpace(url))
+        try
         {
-            var targetUri = new Uri(url);
-
-            string origin = $"{targetUri.Scheme}://{targetUri.Host}";
-
-            // 解析 cookie 字符串 "a=xxx; b=xxx" -> Cookie 对象数组
-            var cookieObjects = cookies
-                .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Select(pair =>
+            var browser = mode switch
+            {
+                PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchAsync(new()
                 {
-                    var idx = pair.IndexOf('=');
-                    var name = pair.Substring(0, idx).Trim();
-                    var value = pair.Substring(idx + 1).Trim();
-                    return new Cookie
-                    {
-                        Name = name,
-                        Value = value,
-                        Url = origin
-                    };
-                })
-                .Where(c => c != null)
-                .ToList() ;
-
-            // 在导航之前把 cookie 添加到 context
-            if (cookieObjects != null && cookieObjects.Any())
-            {
-                await context.AddCookiesAsync(cookieObjects);
-            }
-
-            // 验证 cookie 是否已被添加到 context（比 document.cookie 更可靠，能看到 HttpOnly）
-            var saved = await context.CookiesAsync([origin]);
-
-        }
-
-        var page = await context.NewPageAsync();
-
-        if (!string.IsNullOrWhiteSpace(url))
-        {
-            // 尝试加载页面并等待元素
-            await page.GotoAsync(url, new()
-            {
-                Timeout = options.Value.PageIntervalMs
-            });
-        }
-
-        return await page.GetElementList(selector, attribute, options.Value.ElementIntervalMs);
-    }
-
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="url"></param>
-    /// <param name="selector"></param>
-    /// <param name="readyText"></param>
-    /// <param name="attribute"></param>
-    /// <returns></returns>
-    public async ValueTask<string?> GetElement(
-        string url,
-        string selector,
-        string? readyText,
-        WaitForSelectorState state = WaitForSelectorState.Visible,
-        string attribute = "text",
-        string? cookies = null)
-    {
-        //var page = await GetPageAsync(url, cookies);
-
-        var browser = await GetBrowserAsync();
-
-        await using var context = await browser!.NewContextAsync();
-
-        if (!string.IsNullOrWhiteSpace(cookies) && !string.IsNullOrWhiteSpace(url))
-        {
-            var targetUri = new Uri(url);
-
-            string origin = $"{targetUri.Scheme}://{targetUri.Host}";
-
-            // 解析 cookie 字符串 "a=xxx; b=xxx" -> Cookie 对象数组
-            var cookieObjects = cookies
-                .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Select(p => p.Trim())
-                .Select(pair =>
+                    SlowMo = slow,
+                    Headless = headless,
+                    Timeout = 0
+                }),
+                PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchAsync(new()
                 {
-                    var idx = pair.IndexOf('=');
-                    var name = pair.Substring(0, idx).Trim();
-                    var value = pair.Substring(idx + 1).Trim();
-                    return new Cookie
-                    {
-                        Name = name,
-                        Value = value,
-                        Url = origin
-                    };
-                })
-                .Where(c => c != null)
-                .ToArray();
+                    Channel = channel ?? "msedge",
+                    SlowMo = slow,
+                    Headless = headless,
+                    Timeout = 0,
+                    IgnoreDefaultArgs = ["--enable-automation"],
+                    Args = args ?? ["--no-sandbox", "--disable-gpu"]
+                }),
+                PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(server ?? "ws://playwright-server:3000/"),
+                PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(server ?? "http://playwright-server:9222/"),
+                _ => throw new NotSupportedException($"Unsupported Playwright connection mode: {mode}.")
+            };
 
-            // 在导航之前把 cookie 添加到 context
-            if (cookieObjects != null && cookieObjects.Any())
-            {
-                await context.AddCookiesAsync(cookieObjects);
-            }
-
-            // 验证 cookie 是否已被添加到 context（比 document.cookie 更可靠，能看到 HttpOnly）
-            var saved = await context.CookiesAsync([origin]);
-
+            TrackBrowser(browser);
+            return browser;
         }
-
-        var page = await context.NewPageAsync();
-
-        if (!string.IsNullOrWhiteSpace(url))
+        catch (Exception ex) when (ex is not AutomationException)
         {
-            // 尝试加载页面并等待元素
-            await page.GotoAsync(url, new()
-            {
-                Timeout = options.Value.PageIntervalMs
-            });
-        }
-
-        return await page.GetElement(selector, readyText, state, attribute, options.Value.ElementIntervalMs);
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <returns></returns>
-    public async ValueTask DisposeAsync()
-    {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-            await ((IAsyncDisposable)_browser).DisposeAsync();
+            throw new AutomationException("Browser initialization failed.", AutomationFailureCategory.ExternalSystemError, true, ex);
         }
     }
 
-    public async Task<IBrowser> GetBrowserAsync()
+    private async Task<IBrowser> LaunchPersistentBrowserAsync(
+        bool headless,
+        PlaywrightConnectionMode mode,
+        string? channel,
+        string[]? args,
+        float? slow)
     {
-        var settings = options.Value;
-
-        if (_browser == null)
-        {
-            await InitializeAsync();
-        }
-
-        return _browser ?? throw new InvalidOperationException("Browser初始化失败");
-    }
-
-    public async Task<IBrowser> GetCustomBrowserAsync(
-        bool headless = true,
-        PlaywrightConnectionMode mode = PlaywrightConnectionMode.Default,
-        string? server = "http://localhost:9222/",
-        string? channel = "chrome",
-        string[]? args = null,
-        int slow = 100, 
-        bool persistent = false)
-    {
+        var playwright = await GetPlaywrightAsync();
         var dataDirectory = Path.Combine(AppContext.BaseDirectory, "data");
 
-        var playwright = await Playwright.CreateAsync();
-
-        if (persistent)
+        try
         {
             var browserContext = mode switch
             {
@@ -241,212 +116,305 @@ public class PlaywrightService(
                     IgnoreDefaultArgs = ["--enable-automation"],
                     Args = args ?? ["--no-sandbox", "--disable-gpu"]
                 }),
-                _ => throw new NotImplementedException()
+                _ => throw new NotSupportedException("Persistent browser contexts are supported only for local launches.")
             };
 
+            _ownedPersistentContexts.TryAdd(browserContext, 0);
+
+            if (browserContext.Browser == null)
+            {
+                throw new AutomationException("Persistent browser context did not expose a browser instance.", AutomationFailureCategory.ExternalSystemError, false);
+            }
+
+            TrackBrowser(browserContext.Browser);
             return browserContext.Browser;
         }
-
-        IBrowser browser = mode switch
+        catch (Exception ex) when (ex is not AutomationException)
         {
-            PlaywrightConnectionMode.Default => await playwright.Chromium.LaunchAsync(new()
-            {
-                SlowMo = slow,
-                Headless = headless,
-                Timeout = 0
-            }),
-            PlaywrightConnectionMode.Local => await playwright.Chromium.LaunchAsync(new()
-            {
-                Channel = channel ?? "msedge",
-                SlowMo = slow,
-                Headless = headless,
-                Timeout = 0,
-                IgnoreDefaultArgs = ["--enable-automation"],
-                Args = args ?? ["--no-sandbox", "--disable-gpu"]
-            }),
-            PlaywrightConnectionMode.Ws => await playwright.Chromium.ConnectAsync(server ?? "ws://playwright-server:3000/"),
-            PlaywrightConnectionMode.Cdp => await playwright.Chromium.ConnectOverCDPAsync(server ?? "http://playwright-server:9222/"),
-            _ => throw new NotImplementedException()
-        };    
+            throw new AutomationException("Persistent browser initialization failed.", AutomationFailureCategory.ExternalSystemError, true, ex);
+        }
+    }
 
-        return browser ?? throw new InvalidOperationException("Browser初始化失败");
+    public async Task<IBrowser> GetBrowserAsync()
+    {
+        ThrowIfDisposed();
+
+        if (_browser is { IsConnected: true })
+        {
+            return _browser;
+        }
+
+        await _configuredBrowserLock.WaitAsync();
+        try
+        {
+            if (_browser is { IsConnected: true })
+            {
+                return _browser;
+            }
+
+            var settings = options.Value;
+            _browser = await LaunchBrowserAsync(
+                settings.Headless,
+                settings.Mode,
+                settings.Server,
+                settings.Channel,
+                settings.Args,
+                settings.Slow);
+
+            return _browser;
+        }
+        finally
+        {
+            _configuredBrowserLock.Release();
+        }
+    }
+
+    public Task<IBrowser> GetCustomBrowserAsync(
+        bool headless = true,
+        PlaywrightConnectionMode mode = PlaywrightConnectionMode.Default,
+        string? server = "http://localhost:9222/",
+        string? channel = "chrome",
+        string[]? args = null,
+        int slow = 100,
+        bool persistent = false)
+    {
+        ThrowIfDisposed();
+
+        return persistent
+            ? LaunchPersistentBrowserAsync(headless, mode, channel, args, slow)
+            : LaunchBrowserAsync(headless, mode, server, channel, args, slow);
+    }
+
+    public async Task<T> RunPageAsync<T>(
+        Func<IPage, CancellationToken, Task<T>> action,
+        string? url = null,
+        IEnumerable<Cookie>? cookies = null,
+        BrowserNewContextOptions? contextOptions = null,
+        CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+        ThrowIfDisposed();
+
+        try
+        {
+            var browser = await GetBrowserAsync();
+
+            await using var context = await browser.NewContextAsync(contextOptions);
+            await AddCookiesAsync(context, url, cookies);
+
+            var page = await context.NewPageAsync();
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                await page.GotoAsync(url, new()
+                {
+                    Timeout = options.Value.PageIntervalMs
+                });
+            }
+
+            return await action(page, cancellation);
+        }
+        catch (AutomationException)
+        {
+            throw;
+        }
+        catch (PlaywrightException ex)
+        {
+            throw new AutomationException("Page automation failed.", AutomationFailureCategory.ExternalSystemError, true, ex);
+        }
+    }
+
+    public Task RunPageAsync(
+        Func<IPage, CancellationToken, Task> action,
+        string? url = null,
+        IEnumerable<Cookie>? cookies = null,
+        BrowserNewContextOptions? contextOptions = null,
+        CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(action);
+
+        return RunPageAsync(
+            async (page, token) =>
+            {
+                await action(page, token);
+                return true;
+            },
+            url,
+            cookies,
+            contextOptions,
+            cancellation);
+    }
+
+    public ValueTask<List<string>> GetElementList(
+        string url,
+        string selector,
+        string attribute = "href",
+        string? cookies = null)
+    {
+        var browserCookies = ParseCookieHeader(cookies, url);
+        return GetElementListCore(url, selector, browserCookies, attribute);
+    }
+
+    public ValueTask<List<string>> GetElementList(
+        string url,
+        string selector,
+        IEnumerable<Cookie> browserCookies,
+        string attribute = "href")
+    {
+        return GetElementListCore(url, selector, browserCookies, attribute);
+    }
+
+    private async ValueTask<List<string>> GetElementListCore(
+        string url,
+        string selector,
+        IEnumerable<Cookie>? cookies,
+        string attribute)
+    {
+        return await RunPageAsync(
+            (page, _) => page.GetElementList(selector, attribute, options.Value.ElementIntervalMs).AsTask(),
+            url,
+            cookies);
+    }
+
+    public ValueTask<string?> GetElement(
+        string url,
+        string selector,
+        string? readyText,
+        WaitForSelectorState state = WaitForSelectorState.Visible,
+        string attribute = "text",
+        string? cookies = null)
+    {
+        var browserCookies = ParseCookieHeader(cookies, url);
+        return GetElementCore(url, selector, readyText, browserCookies, state, attribute);
+    }
+
+    public ValueTask<string?> GetElement(
+        string url,
+        string selector,
+        string? readyText,
+        IEnumerable<Cookie> browserCookies,
+        WaitForSelectorState state = WaitForSelectorState.Visible,
+        string attribute = "text")
+    {
+        return GetElementCore(url, selector, readyText, browserCookies, state, attribute);
+    }
+
+    private async ValueTask<string?> GetElementCore(
+        string url,
+        string selector,
+        string? readyText,
+        IEnumerable<Cookie>? cookies,
+        WaitForSelectorState state,
+        string attribute)
+    {
+        return await RunPageAsync(
+            (page, _) => page.GetElement(selector, readyText, state, attribute, options.Value.ElementIntervalMs).AsTask(),
+            url,
+            cookies);
     }
 
     public async Task EnsureInstalledAsync(
         IProgress<string>? progress = null,
         CancellationToken cancellation = default)
     {
-        // 校验 .net sdk 安装
         var toolDirectory = Path.Combine(AppContext.BaseDirectory, "tools");
         var scriptDirectory = Path.Combine(AppContext.BaseDirectory, "scripts");
 
-        if (!string.IsNullOrWhiteSpace(toolDirectory) && !System.IO.Directory.Exists(toolDirectory))
+        Directory.CreateDirectory(toolDirectory);
+        Directory.CreateDirectory(scriptDirectory);
+
+        var markerPath = GetInstallMarkerPath(toolDirectory);
+        if (File.Exists(markerPath))
         {
-            System.IO.Directory.CreateDirectory(toolDirectory);
+            progress?.Report("Playwright browsers already marked as installed. Skipping install.");
+            return;
         }
 
-        if (!string.IsNullOrWhiteSpace(scriptDirectory) && !System.IO.Directory.Exists(scriptDirectory))
-        {
-            System.IO.Directory.CreateDirectory(scriptDirectory);
-        }
-
-        // 1) Find or install dotnet
         progress?.Report("Checking for .NET SDK...");
 
         var dotnetResult = await ProcessExtensions.RunProcessAsync("dotnet", "--version", timeoutMs: 30_000, cancellation: cancellation);
 
-        if (dotnetResult.ExitCode != 0) 
+        if (dotnetResult.ExitCode != 0)
         {
             progress?.Report("Failed to find .NET SDK.");
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // Use dotnet-install.ps1
-                string psUrl = "https://dot.net/v1/dotnet-install.ps1";
-
-                string psPath = Path.Combine(scriptDirectory, "dotnet-install.ps1");
+                var psUrl = "https://dot.net/v1/dotnet-install.ps1";
+                var psPath = Path.Combine(scriptDirectory, "dotnet-install.ps1");
 
                 progress?.Report("Downloading dotnet-install script...");
-
                 await ProcessExtensions.DownloadFileAsync(psUrl, psPath, cancellation);
 
-                progress?.Report("Downloaded dotnet-install script.");
-
-                // Run powershell to install
-                string installArgs = $"-NoProfile -ExecutionPolicy Bypass -File \"{psPath}\" -Channel LTS";
-
                 progress?.Report("Installing .NET SDK...");
-
-                var result = await ProcessExtensions.RunProcessAsync("powershell", installArgs, 10 * 60_000,cancellation: cancellation);
+                var result = await ProcessExtensions.RunProcessAsync(
+                    "powershell",
+                    ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", psPath, "-Channel", "LTS"],
+                    10 * 60_000,
+                    cancellation);
 
                 if (result.ExitCode != 0)
                 {
-                    // 当下载安装失败时，推荐用户从网站 https://dotnet.microsoft.com/en-us/download 手动下载安装
                     throw new InstallFailedException($"Dotnet install failed: {result.GetOutputSummary()}\r\nPlease visit https://dotnet.microsoft.com/en-us/download for manual installation.");
                 }
-
-                progress?.Report("Installed .NET SDK.");
             }
             else
             {
-                // Linux / macOS -> use dotnet-install.sh
-                string shUrl = "https://dot.net/v1/dotnet-install.sh";
-
-                string shPath = Path.Combine(Path.GetTempPath(), "dotnet-install.sh");
+                var shUrl = "https://dot.net/v1/dotnet-install.sh";
+                var shPath = Path.Combine(Path.GetTempPath(), "dotnet-install.sh");
 
                 progress?.Report("Downloading dotnet-install script...");
-
                 await ProcessExtensions.DownloadFileAsync(shUrl, shPath, cancellation);
-
-                progress?.Report("Downloaded dotnet-install script.");
 
                 ProcessExtensions.MakeExecutable(shPath);
 
-                progress?.Report("Made dotnet-install script executable.");
-
                 progress?.Report("Installing .NET SDK...");
-
-                var result = await ProcessExtensions.RunProcessAsync(shPath, $"--channel LTS", 10 * 60_000, cancellation: cancellation);
+                var result = await ProcessExtensions.RunProcessAsync(
+                    shPath,
+                    ["--channel", "LTS"],
+                    10 * 60_000,
+                    cancellation);
 
                 if (result.ExitCode != 0)
                 {
-                    // 当下载安装失败时，推荐用户从网站 https://dotnet.microsoft.com/en-us/download 手动下载安装
                     throw new InstallFailedException($"Dotnet install (sh) failed: {result.GetOutputSummary()}\r\nPlease visit https://dotnet.microsoft.com/en-us/download for manual installation.");
                 }
-
-                progress?.Report("Installed .NET SDK.");
             }
 
+            progress?.Report("Installed .NET SDK.");
         }
         else
         {
-            progress?.Report($".NET SDK found: {dotnetResult?.StdOut?.Trim()}");
-        }   
+            progress?.Report($".NET SDK found: {dotnetResult.StdOut?.Trim()}");
+        }
 
-        // 2) Ensure Playwright CLI exists in tools
         progress?.Report("Checking for Playwright CLI...");
 
-        // Determine if there's an existing Playwright shim in tools
-        string[] candidates = Directory.Exists(toolDirectory)
-            ? Directory.GetFiles(toolDirectory, "playwright*", SearchOption.TopDirectoryOnly)
-            : Array.Empty<string>();
-
-        string cliExec = string.Empty;
-
-        if (candidates.Length > 0)
-        {
-            // prefer exact executable names
-            foreach (var c in candidates)
-            {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && Path.GetFileName(c).StartsWith("playwright", StringComparison.OrdinalIgnoreCase))
-                {
-                    cliExec = c;
-                }
-                else if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && (Path.GetFileName(c) == "playwright" || Path.GetFileName(c) == "playwright.sh"))
-                {
-                    ProcessExtensions.MakeExecutable(c);
-                    cliExec = c;
-                }
-            }
-        }
+        var cliExec = FindPlaywrightCli(toolDirectory);
 
         if (string.IsNullOrWhiteSpace(cliExec))
         {
             progress?.Report("Playwright CLI not found in tools. Installing to tools using dotnet tool install...");
 
-            // Use the provided dotnetExe to run the install
-            string installArgs = $"tool install --tool-path \"{Path.GetFullPath(toolDirectory)}\" Microsoft.Playwright.CLI";
-
-            var cliResult = await ProcessExtensions.RunProcessAsync("dotnet", installArgs, timeoutMs: 10 * 60_000, cancellation: cancellation); // allow long time
+            var cliResult = await ProcessExtensions.RunProcessAsync(
+                "dotnet",
+                ["tool", "install", "--tool-path", Path.GetFullPath(toolDirectory), "Microsoft.Playwright.CLI"],
+                timeoutMs: 10 * 60_000,
+                cancellation: cancellation);
 
             if (cliResult.ExitCode != 0)
             {
                 throw new InstallFailedException("Failed to install Microsoft.Playwright.CLI: " + cliResult.GetOutputSummary());
             }
 
-            // After install, detect shim
-            candidates = Directory.GetFiles(toolDirectory, "playwright*", SearchOption.TopDirectoryOnly);
+            cliExec = FindPlaywrightCli(toolDirectory);
 
-            if (candidates.Length == 0)
-            {
-                // Some systems create a "playwright" file inside tools/.store; try to search deeper
-                candidates = Directory.GetFiles(toolDirectory, "*", SearchOption.AllDirectories);
-            }
-            if (candidates.Length == 0)
-                throw new InstallFailedException("Installed tool but couldn't find playwright executable in tools directory.");
-
-            foreach (var c in candidates)
-            {
-                var name = Path.GetFileName(c);
-
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    if (name.Equals("playwright.exe", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("playwright.cmd", StringComparison.OrdinalIgnoreCase) ||
-                        name.Equals("playwright.ps1", StringComparison.OrdinalIgnoreCase))
-                    {
-                        cliExec = c;
-                        break;
-                    }
-                }
-                else
-                {
-                    if (name == "playwright")
-                    {
-                        cliExec = c;
-                        break;
-                    }
-                }
-            }
-
-            // fallback to first candidate under top folder
             if (string.IsNullOrWhiteSpace(cliExec))
             {
-                cliExec = Directory.GetFiles(toolDirectory, "*", SearchOption.TopDirectoryOnly).FirstOrDefault() ?? throw new InstallFailedException("Could not locate playwright executable after installation.");
+                throw new InstallFailedException("Installed tool but couldn't find playwright executable in tools directory.");
             }
 
             ProcessExtensions.MakeExecutable(cliExec);
-
             progress?.Report("Installed Playwright CLI to tools: " + cliExec);
         }
         else
@@ -454,18 +422,21 @@ public class PlaywrightService(
             progress?.Report("Playwright CLI found in tools: " + cliExec);
         }
 
-        // Build args: on Linux use --with-deps
-        string args = "install";
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            args += " --with-deps";
+        var installArgs = RuntimeInformation.IsOSPlatform(OSPlatform.Linux)
+            ? new List<string> { "install", "--with-deps" }
+            : new List<string> { "install" };
 
-        // On Windows the shim may be a .cmd or .ps1 that expects to run directly; that's fine.
-        progress?.Report($"Running Playwright CLI: {cliExec} {args}");
+        progress?.Report($"Running Playwright CLI: {cliExec} {string.Join(' ', installArgs)}");
 
-        var res = await ProcessExtensions.RunProcessAsync(cliExec, args, timeoutMs: 10 * 60_000, cancellation: cancellation);
+        var res = await ProcessExtensions.RunProcessAsync(cliExec, installArgs, timeoutMs: 10 * 60_000, cancellation: cancellation);
 
         if (res.ExitCode != 0)
+        {
             throw new InstallFailedException("Playwright install failed: " + res.GetOutputSummary());
+        }
+
+        Directory.CreateDirectory(Path.GetDirectoryName(markerPath)!);
+        await File.WriteAllTextAsync(markerPath, DateTimeOffset.UtcNow.ToString("O"), cancellation);
 
         progress?.Report("Playwright install succeeded.");
     }
@@ -487,5 +458,189 @@ public class PlaywrightService(
             Path = path
         });
     }
-}
 
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        foreach (var context in _ownedPersistentContexts.Keys)
+        {
+            try
+            {
+                await context.CloseAsync();
+                await ((IAsyncDisposable)context).DisposeAsync();
+            }
+            catch
+            {
+                // Best-effort cleanup during service shutdown.
+            }
+        }
+
+        foreach (var browser in _ownedBrowsers.Keys)
+        {
+            try
+            {
+                if (browser.IsConnected)
+                {
+                    await browser.CloseAsync();
+                }
+
+                await ((IAsyncDisposable)browser).DisposeAsync();
+            }
+            catch
+            {
+                // Best-effort cleanup during service shutdown.
+            }
+        }
+
+        if (_playwright != null)
+        {
+            _playwright.Dispose();
+        }
+
+        _playwrightLock.Dispose();
+        _configuredBrowserLock.Dispose();
+    }
+
+    private async Task AddCookiesAsync(IBrowserContext context, string? url, IEnumerable<Cookie>? cookies)
+    {
+        var normalized = NormalizeCookies(cookies, url);
+
+        if (normalized.Count > 0)
+        {
+            await context.AddCookiesAsync(normalized);
+        }
+    }
+
+    private static IReadOnlyList<Cookie> ParseCookieHeader(string? cookies, string? url)
+    {
+        if (string.IsNullOrWhiteSpace(cookies))
+        {
+            return [];
+        }
+
+        var origin = GetOrigin(url);
+        var parsed = new List<Cookie>();
+
+        foreach (var pair in cookies.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var index = pair.IndexOf('=');
+            if (index <= 0)
+            {
+                throw new AutomationException($"Invalid cookie pair: '{pair}'.", AutomationFailureCategory.ValidationFailed, false);
+            }
+
+            parsed.Add(new Cookie
+            {
+                Name = pair[..index].Trim(),
+                Value = pair[(index + 1)..].Trim(),
+                Url = origin
+            });
+        }
+
+        return parsed;
+    }
+
+    private static IReadOnlyList<Cookie> NormalizeCookies(IEnumerable<Cookie>? cookies, string? url)
+    {
+        if (cookies == null)
+        {
+            return [];
+        }
+
+        var origin = string.IsNullOrWhiteSpace(url) ? null : GetOrigin(url);
+        var normalized = new List<Cookie>();
+
+        foreach (var cookie in cookies)
+        {
+            if (string.IsNullOrWhiteSpace(cookie.Name))
+            {
+                throw new AutomationException("Cookie name cannot be empty.", AutomationFailureCategory.ValidationFailed, false);
+            }
+
+            if (string.IsNullOrWhiteSpace(cookie.Url) &&
+                string.IsNullOrWhiteSpace(cookie.Domain) &&
+                !string.IsNullOrWhiteSpace(origin))
+            {
+                cookie.Url = origin;
+            }
+
+            normalized.Add(cookie);
+        }
+
+        return normalized;
+    }
+
+    private static string GetOrigin(string? url)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var targetUri))
+        {
+            throw new AutomationException("A valid absolute url is required when cookies are provided.", AutomationFailureCategory.ValidationFailed, false);
+        }
+
+        return targetUri.GetLeftPart(UriPartial.Authority);
+    }
+
+    private static string? FindPlaywrightCli(string toolDirectory)
+    {
+        if (!Directory.Exists(toolDirectory))
+        {
+            return null;
+        }
+
+        var candidates = Directory.GetFiles(toolDirectory, "playwright*", SearchOption.TopDirectoryOnly);
+        if (candidates.Length == 0)
+        {
+            candidates = Directory.GetFiles(toolDirectory, "*", SearchOption.AllDirectories);
+        }
+
+        foreach (var candidate in candidates)
+        {
+            var name = Path.GetFileName(candidate);
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                if (name.Equals("playwright.exe", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("playwright.cmd", StringComparison.OrdinalIgnoreCase) ||
+                    name.Equals("playwright.ps1", StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+            else if (name == "playwright" || name == "playwright.sh")
+            {
+                ProcessExtensions.MakeExecutable(candidate);
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetInstallMarkerPath(string toolDirectory)
+    {
+        var playwrightVersion = typeof(Playwright).Assembly.GetName().Version?.ToString() ?? "unknown";
+        var os = RuntimeInformation.OSDescription
+            .Replace(' ', '_')
+            .Replace('/', '_')
+            .Replace('\\', '_');
+        var architecture = RuntimeInformation.OSArchitecture.ToString();
+
+        return Path.Combine(toolDirectory, ".playwright-install", $"{playwrightVersion}_{os}_{architecture}.ok");
+    }
+
+    private void TrackBrowser(IBrowser browser)
+    {
+        _ownedBrowsers.TryAdd(browser, 0);
+    }
+
+    private void ThrowIfDisposed()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, nameof(PlaywrightService));
+    }
+}

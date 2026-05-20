@@ -62,20 +62,31 @@ public static class ProcessExtensions
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
 
-            // Wait with cancellation
-            while (!proc.HasExited)
+            using var registration = cts.Token.Register(() =>
             {
-                await Task.Delay(200, cts.Token).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnRanToCompletion);
-            }
+                try
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup on cancellation or timeout.
+                }
+            });
+
+            await proc.WaitForExitAsync(cts.Token);
 
             result.ExitCode = proc.ExitCode;
             result.StdOut = stdout.ToString();
             result.StdErr = stderr.ToString();
             return result;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            throw new Exception($"Process '{fileName} {arguments}' timed out or cancelled.");
+            throw new TimeoutException($"Process '{fileName} {arguments}' timed out or cancelled.", ex);
         }
         catch (Exception ex)
         {
@@ -135,20 +146,31 @@ public static class ProcessExtensions
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
 
-            // Wait with cancellation
-            while (!proc.HasExited)
+            using var registration = cts.Token.Register(() =>
             {
-                await Task.Delay(200, cts.Token).ContinueWith(_ => { }, TaskContinuationOptions.OnlyOnRanToCompletion);
-            }
+                try
+                {
+                    if (!proc.HasExited)
+                    {
+                        proc.Kill(entireProcessTree: true);
+                    }
+                }
+                catch
+                {
+                    // Best-effort cleanup on cancellation or timeout.
+                }
+            });
+
+            await proc.WaitForExitAsync(cts.Token);
 
             result.ExitCode = proc.ExitCode;
             result.StdOut = stdout.ToString();
             result.StdErr = stderr.ToString();
             return result;
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            throw new Exception($"Process '{fileName} {arguments}' timed out or cancelled.");
+            throw new TimeoutException($"Process '{fileName} {string.Join(' ', arguments ?? [])}' timed out or cancelled.", ex);
         }
         catch (Exception ex)
         {

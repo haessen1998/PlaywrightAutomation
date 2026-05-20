@@ -1,30 +1,24 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
 namespace PlaywrightAutomation.Data;
 
 public class PlaywrightOptions
 {
-    public bool Headless { get; set; }
+    public bool Headless { get; set; } = true;
 
-    public PlaywrightConnectionMode Mode { get; set; }
+    public PlaywrightConnectionMode Mode { get; set; } = PlaywrightConnectionMode.Default;
 
     public string? Server { get; set; }
 
     public string? Channel { get; set; }
 
-    public int PageIntervalMs { get; set; }
+    public int PageIntervalMs { get; set; } = 60_000;
 
-    public int ElementIntervalMs { get; set; }
+    public int ElementIntervalMs { get; set; } = 60_000;
 
-    public int VideoIntervalMs { get; set; }
+    public int VideoIntervalMs { get; set; } = 60_000;
 
-    public float? Slow { get; set; } 
+    public float? Slow { get; set; } = 0;
 
-    public string[]? Args { get; set; } 
+    public string[]? Args { get; set; }
 }
 
 public enum PlaywrightConnectionMode
@@ -34,4 +28,3 @@ public enum PlaywrightConnectionMode
     Cdp,
     Ws
 }
-

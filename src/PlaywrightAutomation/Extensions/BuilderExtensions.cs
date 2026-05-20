@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using PlaywrightAutomation.Data;
 using PlaywrightAutomation.Decorators;
+using PlaywrightAutomation.HealthChecks;
 using PlaywrightAutomation.Interfaces;
 using PlaywrightAutomation.Services;
 
@@ -30,10 +31,26 @@ public static class BuilderExtensions
 
     }
 
-    public static TBuilder AddPlaywrightDefaults<TBuilder>(this TBuilder builder,RetryOptions retry, PlaywrightOptions playwright) where TBuilder : IHostApplicationBuilder
+    public static TBuilder AddPlaywrightDefaults<TBuilder>(this TBuilder builder, RetryOptions retry, PlaywrightOptions playwright) where TBuilder : IHostApplicationBuilder
     {
-        builder.Services.Configure<RetryOptions>(options => options = retry);
-        builder.Services.Configure<PlaywrightOptions>(options => options = playwright);
+        builder.Services.Configure<RetryOptions>(options =>
+        {
+            options.MaxRetries = retry.MaxRetries;
+            options.RetryIntervalMs = retry.RetryIntervalMs;
+        });
+
+        builder.Services.Configure<PlaywrightOptions>(options =>
+        {
+            options.Headless = playwright.Headless;
+            options.Mode = playwright.Mode;
+            options.Server = playwright.Server;
+            options.Channel = playwright.Channel;
+            options.PageIntervalMs = playwright.PageIntervalMs;
+            options.ElementIntervalMs = playwright.ElementIntervalMs;
+            options.VideoIntervalMs = playwright.VideoIntervalMs;
+            options.Slow = playwright.Slow;
+            options.Args = playwright.Args;
+        });
 
         builder.Services.AddSingleton<IPlaywrightContextAccessor, PlaywrightContextAccessor>();
 
@@ -45,6 +62,12 @@ public static class BuilderExtensions
                 .AsSingleton()
                 .Apply();
 
+        return builder;
+    }
+
+    public static TBuilder AddPlaywrightHealthCheck<TBuilder>(this TBuilder builder, string name = "playwright") where TBuilder : IHostApplicationBuilder
+    {
+        builder.Services.AddHealthChecks().AddCheck<PlaywrightHealthCheck>(name);
         return builder;
     }
 
