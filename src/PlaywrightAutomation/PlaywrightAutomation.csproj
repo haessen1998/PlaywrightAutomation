@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
 
 	<PackageId>Automation.Playwright</PackageId>
-	<Version>1.58.0</Version>
+	<Version>1.58.1</Version>
 	<Authors>Haessen</Authors>
 	<Company>Haessen</Company>
 	<Product>PlaywrightAutomation</Product>
@@ -16,7 +16,7 @@
 	<RepositoryUrl>https://github.com/haessen1998/PlaywrightAutomation</RepositoryUrl>
 	<RepositoryType>git</RepositoryType>
 	<PackageProjectUrl>https://github.com/haessen1998/PlaywrightAutomation</PackageProjectUrl>
-	<PackageReleaseNotes>切换核心版本，新增独立的browser控制</PackageReleaseNotes>
+	<PackageReleaseNotes>新增了 HealthCheck 模块，新增了 RunPageAsync 等多种通用方法</PackageReleaseNotes>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
 
 	<!-- 在打包/发布时常用设置 -->
