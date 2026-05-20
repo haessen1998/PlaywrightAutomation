@@ -34,3 +34,4 @@ public enum PlaywrightConnectionMode
     Cdp,
     Ws
 }
+

@@ -16,6 +16,8 @@ public static class BuilderExtensions
         builder.Services.Configure<RetryOptions>(builder.Configuration.GetSection("Retry"));
         builder.Services.Configure<PlaywrightOptions>(builder.Configuration.GetSection("Playwright"));
 
+        builder.Services.AddSingleton<IPlaywrightContextAccessor, PlaywrightContextAccessor>();
+
         // Add decoration
         builder.Services.Decorate<IPlaywrightService>()
                 .With<PlaywrightLoggingDecorator>()
@@ -32,6 +34,8 @@ public static class BuilderExtensions
     {
         builder.Services.Configure<RetryOptions>(options => options = retry);
         builder.Services.Configure<PlaywrightOptions>(options => options = playwright);
+
+        builder.Services.AddSingleton<IPlaywrightContextAccessor, PlaywrightContextAccessor>();
 
         // Add decoration
         builder.Services.Decorate<IPlaywrightService>()

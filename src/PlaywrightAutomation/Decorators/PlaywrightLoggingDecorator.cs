@@ -12,13 +12,11 @@ public class PlaywrightLoggingDecorator(
     public async Task EnsureInstalledAsync(IProgress<string>? progress = null, CancellationToken cancellation = default)
     {
         await inner.EnsureInstalledAsync(progress, cancellation);
-
-        logger.LogDebug("Ensure installed");
     }
 
     public async Task<IBrowser> GetBrowserAsync()
     {
-        logger.LogDebug("Get broswer");
+        logger.LogDebug("Get configured browser");
 
         var result = await inner.GetBrowserAsync();
 
@@ -34,7 +32,7 @@ public class PlaywrightLoggingDecorator(
         int slow = 100, 
         bool persistent = false)
     {
-        logger.LogDebug("Get custom broswer");
+        logger.LogDebug("Get custom browser");
 
         var result = await inner.GetCustomBrowserAsync(headless, mode, server, channel, args, slow, persistent);
 

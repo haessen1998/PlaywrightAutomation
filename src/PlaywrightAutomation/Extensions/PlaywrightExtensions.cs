@@ -125,4 +125,39 @@ public static class PlaywrightExtensions
 
         return savePath;
     }
+
+    /// <summary>
+    /// await WaitUntilAsync(
+    ///     async() =>
+    ///     {
+    ///         var empty = await EmptyCell.IsVisibleAsync();
+    ///         var rowCount = await ResultRows.CountAsync();
+    ///         return empty || rowCount > 0;
+    ///     },
+    ///     TimeSpan.FromSeconds(30),
+    ///     TimeSpan.FromMilliseconds(500),
+    ///     $"搜索结果未刷新: {companyName}");
+    /// </summary>
+    /// <param name="predicate"></param>
+    /// <param name="timeout"></param>
+    /// <param name="interval"></param>
+    /// <param name="timeoutMessage"></param>
+    /// <returns></returns>
+    /// <exception cref="TimeoutException"></exception>
+    public static async Task WaitUntilAsync(
+        Func<Task<bool>> predicate,
+        TimeSpan timeout,
+        TimeSpan interval,
+        string timeoutMessage)
+    {
+        var deadline = DateTimeOffset.UtcNow + timeout;
+
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (await predicate()) return;
+            await Task.Delay(interval);
+        }
+
+        throw new TimeoutException(timeoutMessage);
+    }
 }
